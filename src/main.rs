@@ -1,52 +1,27 @@
-extern crate specs;
-#[macro_use] extern crate specs_derive;
 
-use specs::{Component, VecStorage};
+extern crate piston_window;
+extern crate clamor;
 
-#[derive(Component, Debug)]
-#[component(VecStorage)]
-struct Position {
-    x: f32,
-    y: f32
-}
+use piston_window::*;
 
-#[derive(Component, Debug)]
-#[component(VecStorage)]
-struct Velocity {
-    x: f32,
-    y: f32,
-}
+use clamor::geo;
 
-use specs::{ReadStorage, System};
-
-struct HelloWorld;
-
-impl<'a> System<'a> for HelloWorld {
-    type SystemData = ReadStorage<'a, Position>;
-
-    fn run(&mut self, position: Self::SystemData) {
-        use specs::Join;
-
-        for position in position.join() {
-            println!("Hello, {:?}", &position);
-        }
-    }
-}
-
-use specs::World;
-
-use specs::RunNow;
+const BLACK: [f32; 4] = [0., 0., 0., 1.];
 
 fn main() {
     println!("Start!");
 
-    let mut world = World::new();
-    world.register::<Position>();
+    let mut window: PistonWindow = WindowSettings::new("Clamor", [800, 600])
+        .exit_on_esc(true)
+        .vsync(true)
+        .build()
+        .expect("OpenGL can't be instantiated");
 
-    let ball = world.create_entity().with(Position { x: 4.0, y: 7.0 }).build();
-
-    let mut hello_world = HelloWorld;
-    hello_world.run_now(&world.res);
+    while let Some(event) = window.next() {
+        window.draw_2d(&event, |_context, graphics| {
+            clear(BLACK, graphics);
+        });
+    }
 
     println!("End!");    
 }

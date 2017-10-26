@@ -3,6 +3,18 @@ name = "clamor"
 version = "0.1.0"
 authors = ["John P Mayer Jr <john.p.mayer.jr@gmail.com>"]
 
+[[bin]]
+name = "clamor"
+
+[lib]
+name = "clamor"
+
 [dependencies]
-specs = "0.9"
-specs-derive = "0.1.0"
+piston_window = "0.73.0"
+kay = { git = "https://github.com/citybound/citybound" }
+compact = { git = "https://github.com/citybound/citybound" }
+compact_macros = { git = "https://github.com/citybound/citybound" }
+nalgebra = "0.13.1"
+
+[build-dependencies]
+kay_codegen = { git = "https://github.com/citybound/citybound" }
