@@ -1,10 +1,7 @@
 
 extern crate piston_window;
-extern crate clamor;
 
 use piston_window::*;
-
-use clamor::geo;
 
 const BLACK: [f32; 4] = [0., 0., 0., 1.];
 

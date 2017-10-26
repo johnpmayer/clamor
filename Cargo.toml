@@ -10,6 +10,7 @@ name = "clamor"
 name = "clamor"
 
 [dependencies]
+alga = "0.5"
 piston_window = "0.73.0"
 kay = { git = "https://github.com/citybound/citybound" }
 compact = { git = "https://github.com/citybound/citybound" }

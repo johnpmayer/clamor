@@ -29,9 +29,11 @@
             "type": "shell",
             "command": "cargo",
             "args": [
-                "test"
+                "test",
+                "--",
+                "--nocapture"
             ],
-            "group": "test",
+            "group": "build",
             "problemMatcher": "$rustc"
         },
         {

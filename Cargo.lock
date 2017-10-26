@@ -2,6 +2,7 @@
 name = "clamor"
 version = "0.1.0"
 dependencies = [
+ "alga 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "compact 0.1.0 (git+https://github.com/citybound/citybound)",
  "compact_macros 0.1.0 (git+https://github.com/citybound/citybound)",
  "kay 0.1.0 (git+https://github.com/citybound/citybound)",
