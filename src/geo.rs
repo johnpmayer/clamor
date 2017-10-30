@@ -1,22 +1,26 @@
 
 
-use std::cell::RefCell;
 use std::rc::Rc;
 use std::collections::{HashSet, HashMap};
 use std::f32::{self, consts};
 
 use nalgebra::geometry::Rotation3;
-use nalgebra::core::Vector3;
+use nalgebra::core::{Vector2, Vector3};
+use nalgebra::core::{MatrixN, Matrix2};
 
-type NetCoordinate = (i32, i32);
+// use vecmath::Vector2;
+use vecmath::vec2_scale;
+use vecmath::vec2_add;
 
-#[derive(Debug)]
+type NetCoordinate = [i32; 2];
+
+#[derive(Clone, Debug)]
 struct NetNode {
-    coordinates: Rc<Vec<NetCoordinate>>,
+    coordinates: Vec<NetCoordinate>,
     position: Vector3<f32>,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 struct Net {
     nodes: HashMap<NetCoordinate, Rc<NetNode>>,
     adjacency: HashMap<NetCoordinate, Vec<NetCoordinate>>,
@@ -37,12 +41,12 @@ impl Net {
         {
             let mut north_pole_net_coordinates: Vec<NetCoordinate> = Vec::new();
             for i in 0..5 {
-                let coord = (i, i + 1);
+                let coord = [i, i + 1];
                 north_pole_net_coordinates.push(coord);
             }
             let north_pole_position = Vector3::new(0., 0., 1.);
             let north_pole_node = Rc::new(NetNode { 
-                coordinates: Rc::new(north_pole_net_coordinates.clone()), 
+                coordinates: north_pole_net_coordinates.clone(),
                 position: north_pole_position 
             });
             for coord in north_pole_net_coordinates {
@@ -53,12 +57,12 @@ impl Net {
         {
             let mut south_pole_net_coordinates: Vec<NetCoordinate> = Vec::new();
             for i in 0..5 {
-                let coord = (i + 2, i);
+                let coord = [i + 2, i];
                 south_pole_net_coordinates.push(coord);
             }
             let south_pole_position = Vector3::new(0., 0., -1.);
             let south_pole_node = Rc::new(NetNode { 
-                coordinates: Rc::new(south_pole_net_coordinates.clone()), 
+                coordinates: south_pole_net_coordinates.clone(), 
                 position: south_pole_position 
             });
             for coord in south_pole_net_coordinates {
@@ -67,10 +71,10 @@ impl Net {
         }
 
         for i in 0..5 {
-            let coord = (i, i);
+            let coord = [i, i];
             let mut arctic_circle_coordinates = vec!(coord);
             if i == 0 {
-                arctic_circle_coordinates.push((5, 5));
+                arctic_circle_coordinates.push([5, 5]);
             }
             let mut arctic_circle_position = Vector3::new(1., 0., 0.);
             let latitude_rotation = Rotation3::new(Vector3::new(0., circle_latitude_radians, 0.));
@@ -80,7 +84,7 @@ impl Net {
             arctic_circle_position = longitude_rotation * latitude_rotation * arctic_circle_position;
 
             let arctic_circle_node = Rc::new(NetNode {
-                coordinates: Rc::new(arctic_circle_coordinates.clone()),
+                coordinates: arctic_circle_coordinates.clone(),
                 position: arctic_circle_position
             });
             for coord in arctic_circle_coordinates {
@@ -90,10 +94,10 @@ impl Net {
         }
 
         for i in 0..5 {
-            let coord = (i + 1, i);
+            let coord = [i + 1, i];
             let mut antarctic_circle_coordinates = vec!(coord);
             if i == 0 {
-                antarctic_circle_coordinates.push((6, 5));
+                antarctic_circle_coordinates.push([6, 5]);
             }
             let mut antarctic_circle_position = Vector3::new(1., 0., 0.);
             let latitude_rotation = Rotation3::new(Vector3::new(0., - circle_latitude_radians, 0.));
@@ -103,17 +107,13 @@ impl Net {
             antarctic_circle_position = longitude_rotation * latitude_rotation * antarctic_circle_position;
 
             let antarctic_circle_node = Rc::new(NetNode {
-                coordinates: Rc::new(antarctic_circle_coordinates.clone()),
+                coordinates: antarctic_circle_coordinates.clone(),
                 position: antarctic_circle_position
             });
             for coord in antarctic_circle_coordinates {
                 
                 nodes.insert(coord, antarctic_circle_node.clone());
             }
-        }
-
-        for node in nodes.iter() {
-            println!("{:?}", node)
         }
 
         let mut adjacency: HashMap<NetCoordinate, Vec<NetCoordinate>> = HashMap::new();
@@ -126,7 +126,9 @@ impl Net {
             }
 
             let neighbors = Net::canonical_neighbors(&nodes, node_coordinate).unwrap();
+
             println!("{:?}, {:?}", node_coordinate, neighbors);
+
             assert!(neighbors.len() == 5);
             adjacency.insert(*node_coordinate, neighbors);
         }
@@ -135,32 +137,34 @@ impl Net {
 
     }
 
-    fn face_base_coordinates() -> Vec<NetCoordinate> {
-        let mut coordinates = Vec::new();
-        for i in 0..5 {
-            coordinates.push((i, i));
-            coordinates.push((i + 1, i));
-        }
-        coordinates
-    }
+    // fn face_base_coordinates() -> Vec<NetCoordinate> {
+    //     let mut coordinates = Vec::new();
+    //     for i in 0..5 {
+    //         coordinates.push((i, i));
+    //         coordinates.push((i + 1, i));
+    //     }
+    //     coordinates
+    // }
 
     fn canonical_neighbors(nodes: &HashMap<NetCoordinate, Rc<NetNode>>, coordinate: &NetCoordinate) -> Result<Vec<NetCoordinate>, NetError> {
         let mut neighbors = HashSet::new();
         let mut counter_clockwise_neighbors = Vec::new();
 
         let offsets: [NetCoordinate; 6] = [
-            (1,0),(1,1),(0,1),
-            (-1,0),(-1,-1),(0,-1),
+            [1,0],
+            [1,1],
+            [0,1],
+            [-1,0],
+            [-1,-1],
+            [0,-1],
         ];
 
-        let node: &Rc<NetNode> = nodes.get(&coordinate).ok_or(NetError::InvalidCoordinate)?;
+        let node: &Rc<NetNode> = nodes.get(coordinate).ok_or(NetError::InvalidCoordinate)?;
 
         for &node_coordinate in node.coordinates.iter() {
-            let (node_x, node_y) = node_coordinate;
-            for offset in offsets.iter() {
-                let (offset_x, offset_y) = *offset;
+            for &offset in offsets.iter() {
 
-                let test_coordinate = (node_x + offset_x, node_y + offset_y);
+                let test_coordinate = vec2_add(node_coordinate, offset);
                 if node.coordinates.iter().find(|c| **c == test_coordinate) ==  None {
                     for neighbor_node in nodes.get(&test_coordinate) {
                         // Only insert the canonical coordinate
@@ -176,7 +180,28 @@ impl Net {
         Ok(counter_clockwise_neighbors)
     }
 
-    fn subdivide(&self) -> Net {
+    fn build_subdivided(factor: i32) -> Net {
+
+        // let scaling_matrix: Matrix2<i32> = MatrixN::new_scaling(factor);
+
+        // let nodes = HashMap::new();
+        // let adjacency = HashMap::new();
+
+        let primary_net = Net::build();
+        assert!(primary_net.nodes.len() == 22);
+
+        for (_, primary_node) in primary_net.nodes.iter().filter(|&(coord, ref node)| {
+            node.coordinates[0] == *coord
+        }) {
+            println!("Primary node: {:?}", primary_node);
+            let mut new_primary_node: NetNode = primary_node.as_ref().clone();
+
+            for ref mut coordinate in &mut new_primary_node.coordinates {
+                **coordinate = vec2_scale(**coordinate, factor);
+            }
+
+            println!("Primary node: {:?}", new_primary_node);
+        }
 
         /*
         Scale the 12 primary nodes and their aliases
@@ -196,7 +221,11 @@ impl Net {
         Create all remaining internal nodes, relative to the the 10 non-polar primary nodes, (2x triangles, top & bottom)
         */
 
-        panic!("TODO")
+        panic!("TODO");
+        Net {
+            nodes: HashMap::new(),
+            adjacency: HashMap::new()
+        }
     }
 }
 
@@ -204,4 +233,5 @@ impl Net {
 #[test]
 fn run_icosahedron() {
     Net::build();
+    Net::build_subdivided(5);
 }

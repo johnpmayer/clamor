@@ -2,13 +2,13 @@
 name = "clamor"
 version = "0.1.0"
 dependencies = [
- "alga 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "compact 0.1.0 (git+https://github.com/citybound/citybound)",
  "compact_macros 0.1.0 (git+https://github.com/citybound/citybound)",
  "kay 0.1.0 (git+https://github.com/citybound/citybound)",
  "kay_codegen 0.1.0 (git+https://github.com/citybound/citybound)",
  "nalgebra 0.13.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "piston_window 0.73.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "vecmath 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
