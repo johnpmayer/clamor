@@ -1,23 +1,164 @@
 
+extern crate clamor;
 extern crate piston_window;
+extern crate sdl2_window;
+extern crate shader_version;
+extern crate camera_controllers;
+
+extern crate vecmath;
+
+#[macro_use]
+extern crate gfx;
 
 use piston_window::*;
+use clamor::geo::Net;
+// use gfx::traits::FactoryExt;
+use gfx::traits::*;
+use shader_version::Shaders;
+use shader_version::glsl::GLSL;
+// use sdl2_window::Sdl2Window;
+use camera_controllers::{
+    FirstPersonSettings,
+    FirstPerson,
+    CameraPerspective,
+    model_view_projection
+};
+// use vecmath;
+
 
 const BLACK: [f32; 4] = [0., 0., 0., 1.];
+
+gfx_vertex_struct!( Vertex {
+    a_pos: [f32; 4] = "a_pos",
+    a_tex_coord: [i8; 2] = "a_tex_coord",
+});
+
+impl Vertex {
+    fn new(pos: [f32; 3]) -> Vertex {
+        Vertex {
+            a_pos: [pos[0], pos[1], pos[2], 1.],
+            a_tex_coord: [0, 0],
+        }
+    }
+}
+
+gfx_pipeline!( pipe {
+    vbuf: gfx::VertexBuffer<Vertex> = (),
+    u_model_view_proj: gfx::Global<[[f32; 4]; 4]> = "u_model_view_proj",
+    t_color: gfx::TextureSampler<[f32; 4]> = "t_color",
+    out_color: gfx::RenderTarget<::gfx::format::Srgba8> = "o_Color",
+    out_depth: gfx::DepthTarget<::gfx::format::DepthStencil> =
+        gfx::preset::depth::LESS_EQUAL_WRITE,
+});
+
 
 fn main() {
     println!("Start!");
 
+    let faces = Net::build_subdivided(4).faces();
+
+    // println!("Faces: {}", faces.len());
+    // assert!(faces.len() == (4 * 4 * 2 * 10)); // actually wrong! 960
+
+    let mut vertex_data: Vec<Vertex> = Vec::new();
+    let mut index_data = Vec::new();
+    let mut index_counter: u16 = 0;
+    for face in faces {
+        for vertex_index in 0..3 {
+            let vertex_slice = face[vertex_index].as_slice();
+            vertex_data.push(Vertex::new([
+                vertex_slice[0],
+                vertex_slice[1],
+                vertex_slice[2],
+            ]));
+            index_data.push(index_counter);
+            index_counter += 1;
+        }
+    }
+
+    let opengl = OpenGL::V3_2;
+
     let mut window: PistonWindow = WindowSettings::new("Clamor", [800, 600])
         .exit_on_esc(true)
         .vsync(true)
-        .opengl(OpenGL::V3_2)
+        .opengl(opengl)
         .build()
         .expect("OpenGL can't be instantiated");
+    
+    let ref mut factory = window.factory.clone();
+
+    let (vbuf, slice) = factory.create_vertex_buffer_with_slice(&vertex_data, index_data.as_slice());
+
+    let glsl = opengl.to_glsl();
+
+    println!("Creating pipeline?");
+
+    let pso = factory.create_pipeline_simple(
+        Shaders::new()
+            .set(GLSL::V1_20, include_str!("../assets/cube_120.glslv"))
+            .set(GLSL::V1_50, include_str!("../assets/cube_150.glslv"))
+            .get(glsl).unwrap().as_bytes(),
+        Shaders::new()
+            .set(GLSL::V1_20, include_str!("../assets/cube_120.glslf"))
+            .set(GLSL::V1_50, include_str!("../assets/cube_150.glslf"))
+            .get(glsl).unwrap().as_bytes(),
+        pipe::new()
+    ).unwrap();
+
+    println!("Created pso");
+
+    let get_projection = |w: &PistonWindow| {
+        let draw_size = w.window.draw_size();
+        CameraPerspective {
+            fov: 90.0, near_clip: 0.1, far_clip: 1000.0,
+            aspect_ratio: (draw_size.width as f32) / (draw_size.height as f32)
+        }.projection()
+    };
+
+    let model = vecmath::mat4_id();
+    let mut projection = get_projection(&window);
+    let mut first_person = FirstPerson::new(
+        [0.5, 0.5, 4.0],
+        FirstPersonSettings::keyboard_wasd()
+    );
+
+    let texels = [
+        [0xff, 0xff, 0xff, 0x00],
+        [0xff, 0x00, 0x00, 0x00],
+        [0x00, 0xff, 0x00, 0x00],
+        [0x00, 0x00, 0xff, 0x00]
+    ];
+    let (_, texture_view) = factory.create_texture_immutable::<gfx::format::Rgba8>(
+        gfx::texture::Kind::D2(2, 2, gfx::texture::AaMode::Single),
+        &[&texels]).unwrap();
+
+    let sinfo = gfx::texture::SamplerInfo::new(
+        gfx::texture::FilterMethod::Bilinear,
+        gfx::texture::WrapMode::Clamp);
+
+    let mut data = pipe::Data {
+            vbuf: vbuf.clone(),
+            u_model_view_proj: [[0.0; 4]; 4],
+            t_color: (texture_view, factory.create_sampler(sinfo)),
+            out_color: window.output_color.clone(),
+            out_depth: window.output_stencil.clone(),
+        };
 
     while let Some(event) = window.next() {
+        
         window.draw_3d(&event, |window| {
-            window.encoder.clear(&window.output_color, BLACK);
+            let args = event.render_args().unwrap();
+
+            window.encoder.clear(&window.output_color, [0.3, 0.3, 0.3, 1.0]);
+            window.encoder.clear_depth(&window.output_stencil, 1.0);
+
+            data.u_model_view_proj = model_view_projection(
+                model,
+                first_person.camera(args.ext_dt).orthogonal(),
+                projection
+            );
+            window.encoder.draw(&slice, &pso, &data);
+            
         });
     }
 
