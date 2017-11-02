@@ -4,7 +4,7 @@ extern crate piston_window;
 extern crate sdl2_window;
 extern crate shader_version;
 extern crate camera_controllers;
-
+extern crate nalgebra;
 extern crate vecmath;
 
 #[macro_use]
@@ -12,32 +12,28 @@ extern crate gfx;
 
 use piston_window::*;
 use clamor::geo::Net;
-// use gfx::traits::FactoryExt;
 use gfx::traits::*;
 use shader_version::Shaders;
 use shader_version::glsl::GLSL;
-// use sdl2_window::Sdl2Window;
 use camera_controllers::{
     FirstPersonSettings,
     FirstPerson,
     CameraPerspective,
     model_view_projection
 };
-// use vecmath;
 
-
-const BLACK: [f32; 4] = [0., 0., 0., 1.];
+use nalgebra::core::{Vector3};
 
 gfx_vertex_struct!( Vertex {
     a_pos: [f32; 4] = "a_pos",
-    a_tex_coord: [i8; 2] = "a_tex_coord",
+    //a_tex_coord: [i8; 2] = "a_tex_coord",
 });
 
 impl Vertex {
     fn new(pos: [f32; 3]) -> Vertex {
         Vertex {
             a_pos: [pos[0], pos[1], pos[2], 1.],
-            a_tex_coord: [0, 0],
+            //a_tex_coord: [0, 0],
         }
     }
 }
@@ -45,7 +41,7 @@ impl Vertex {
 gfx_pipeline!( pipe {
     vbuf: gfx::VertexBuffer<Vertex> = (),
     u_model_view_proj: gfx::Global<[[f32; 4]; 4]> = "u_model_view_proj",
-    t_color: gfx::TextureSampler<[f32; 4]> = "t_color",
+    // t_color: gfx::TextureSampler<[f32; 4]> = "t_color",
     out_color: gfx::RenderTarget<::gfx::format::Srgba8> = "o_Color",
     out_depth: gfx::DepthTarget<::gfx::format::DepthStencil> =
         gfx::preset::depth::LESS_EQUAL_WRITE,
@@ -55,10 +51,23 @@ gfx_pipeline!( pipe {
 fn main() {
     println!("Start!");
 
-    let faces = Net::build_subdivided(4).faces();
+    // let world = Net::build();
+    let world = Net::build_subdivided(2);
 
-    // println!("Faces: {}", faces.len());
-    // assert!(faces.len() == (4 * 4 * 2 * 10)); // actually wrong! 960
+    for (ref coord, ref node) in world.nodes.iter() {
+        println!("{:?}, {:?}", coord, node.position.data);
+    }
+
+    let mut faces = world.faces();
+    // faces.truncate(5);
+
+    for ref face in faces.iter() {
+        println!("{:?}", face);
+    }
+
+    // panic!("?");
+
+    println!("Num of faces: {}", faces.len());
 
     let mut vertex_data: Vec<Vertex> = Vec::new();
     let mut index_data = Vec::new();
@@ -76,6 +85,8 @@ fn main() {
         }
     }
 
+    println!("Num vertices: {} {}", vertex_data.len(), index_data.len());
+
     let opengl = OpenGL::V3_2;
 
     let mut window: PistonWindow = WindowSettings::new("Clamor", [800, 600])
@@ -84,7 +95,8 @@ fn main() {
         .opengl(opengl)
         .build()
         .expect("OpenGL can't be instantiated");
-    
+    // window.set_capture_cursor(true);
+
     let ref mut factory = window.factory.clone();
 
     let (vbuf, slice) = factory.create_vertex_buffer_with_slice(&vertex_data, index_data.as_slice());
@@ -95,11 +107,9 @@ fn main() {
 
     let pso = factory.create_pipeline_simple(
         Shaders::new()
-            .set(GLSL::V1_20, include_str!("../assets/cube_120.glslv"))
             .set(GLSL::V1_50, include_str!("../assets/cube_150.glslv"))
             .get(glsl).unwrap().as_bytes(),
         Shaders::new()
-            .set(GLSL::V1_20, include_str!("../assets/cube_120.glslf"))
             .set(GLSL::V1_50, include_str!("../assets/cube_150.glslf"))
             .get(glsl).unwrap().as_bytes(),
         pipe::new()
@@ -116,36 +126,23 @@ fn main() {
     };
 
     let model = vecmath::mat4_id();
-    let mut projection = get_projection(&window);
+    let projection = get_projection(&window);
     let mut first_person = FirstPerson::new(
         [0.5, 0.5, 4.0],
         FirstPersonSettings::keyboard_wasd()
     );
 
-    let texels = [
-        [0xff, 0xff, 0xff, 0x00],
-        [0xff, 0x00, 0x00, 0x00],
-        [0x00, 0xff, 0x00, 0x00],
-        [0x00, 0x00, 0xff, 0x00]
-    ];
-    let (_, texture_view) = factory.create_texture_immutable::<gfx::format::Rgba8>(
-        gfx::texture::Kind::D2(2, 2, gfx::texture::AaMode::Single),
-        &[&texels]).unwrap();
-
-    let sinfo = gfx::texture::SamplerInfo::new(
-        gfx::texture::FilterMethod::Bilinear,
-        gfx::texture::WrapMode::Clamp);
-
     let mut data = pipe::Data {
             vbuf: vbuf.clone(),
             u_model_view_proj: [[0.0; 4]; 4],
-            t_color: (texture_view, factory.create_sampler(sinfo)),
+            // t_color: (texture_view, factory.create_sampler(sinfo)),
             out_color: window.output_color.clone(),
             out_depth: window.output_stencil.clone(),
         };
 
     while let Some(event) = window.next() {
-        
+        first_person.event(&event);
+
         window.draw_3d(&event, |window| {
             let args = event.render_args().unwrap();
 

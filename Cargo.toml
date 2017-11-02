@@ -5,6 +5,7 @@ authors = ["John P Mayer Jr <john.p.mayer.jr@gmail.com>"]
 
 [[bin]]
 name = "clamor-bin"
+path = "src/main.rs"
 
 [lib]
 name = "clamor"

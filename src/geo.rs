@@ -8,23 +8,25 @@ use num::Integer;
 
 use nalgebra::geometry::Rotation3;
 use nalgebra::core::{Vector3};
+use nalgebra;
 
 // use vecmath::Vector2;
 use vecmath::{vec2_add, vec2_scale};
 
 type NetCoordinate = [i32; 2];
 
+// TODO make a "dump" debug function rather than making these types/fields public
 #[derive(Clone, Debug)]
-struct NetNode {
+pub struct NetNode {
     coordinates: Vec<NetCoordinate>,
-    position: Vector3<f32>,
+    pub position: Vector3<f32>,
     is_primary: bool,
 }
 
 #[derive(Clone, Debug)]
 pub struct Net {
     factor: i32,
-    nodes: HashMap<NetCoordinate, Rc<NetNode>>,
+    pub nodes: HashMap<NetCoordinate, Rc<NetNode>>,
     adjacency: HashMap<NetCoordinate, Vec<NetCoordinate>>, // Counter-clockwise w.r.t. the Net
 }
 
@@ -79,8 +81,8 @@ impl Net {
                 arctic_circle_coordinates.push([5, 5]);
             }
             let mut arctic_circle_position = Vector3::new(1., 0., 0.);
-            let latitude_rotation = Rotation3::new(Vector3::new(0., circle_latitude_radians, 0.));
-            let longitude_radians = circle_longitude_increment * i as f32;
+            let latitude_rotation = Rotation3::new(Vector3::new(0., - circle_latitude_radians, 0.));
+            let longitude_radians = (i as f32) * 2. * circle_longitude_increment;
             let longitude_rotation = Rotation3::new(Vector3::new(0., 0., longitude_radians));
 
             arctic_circle_position = longitude_rotation * latitude_rotation * arctic_circle_position;
@@ -103,8 +105,8 @@ impl Net {
                 antarctic_circle_coordinates.push([6, 5]);
             }
             let mut antarctic_circle_position = Vector3::new(1., 0., 0.);
-            let latitude_rotation = Rotation3::new(Vector3::new(0., - circle_latitude_radians, 0.));
-            let longitude_radians = circle_longitude_increment + circle_longitude_increment * i as f32;
+            let latitude_rotation = Rotation3::new(Vector3::new(0., circle_latitude_radians, 0.));
+            let longitude_radians = circle_longitude_increment + (i as f32) * 2. * circle_longitude_increment;
             let longitude_rotation = Rotation3::new(Vector3::new(0., 0., longitude_radians));
 
             antarctic_circle_position = longitude_rotation * latitude_rotation * antarctic_circle_position;
@@ -177,8 +179,8 @@ impl Net {
 
         let node: &Rc<NetNode> = nodes.get(coordinate).ok_or(NetError::InvalidCoordinate)?;
 
-        for &node_coordinate in node.coordinates.iter() {
-            for &offset in offsets.iter() {
+        for &offset in offsets.iter() {
+            for &node_coordinate in node.coordinates.iter() {
 
                 let test_coordinate = vec2_add(node_coordinate, offset);
                 if node.coordinates.iter().find(|c| **c == test_coordinate) ==  None {
@@ -451,6 +453,21 @@ impl Net {
                 let left_node = self.nodes.get(&left_coord).unwrap();
                 let left_midpoint = center_node.position + (left_node.position - center_node.position) / 2.;
 
+                /*
+                println!(
+                    "Face {}: (Center = {:?} --> Right = {:?} & Left = {:?})\n\tcenter {:?}\n\tright {:?}\n\tleft {:?}\n\tnorm cr {}\n\tnorm rl {}\n\tnorm lc {}",
+                    face_i, center_coord, right_coord, left_coord,
+                    center_node.position,
+                    right_midpoint,
+                    left_midpoint,
+                    nalgebra::norm(&(center_node.position - right_midpoint)),
+                    nalgebra::norm(&(right_midpoint - left_midpoint)),
+                    nalgebra::norm(&(left_midpoint - center_node.position)),
+                );
+                */
+                
+                let foo = nalgebra::norm(&center_node.position);
+
                 faces.push([
                     center_node.position,
                     right_midpoint,
@@ -472,12 +489,14 @@ fn modulo_behavior() {
 
 #[test]
 fn run_icosahedron() {
-    Net::build();
+    let n = Net::build();
+    println!("build - {} {}", n.nodes.len(), n.adjacency.len());
 }
 
 #[test]
 fn run_icosahedron_2() {
-    Net::build_subdivided(2);
+    let n = Net::build_subdivided(2);
+    println!("build_subdivided 2 - {} {}", n.nodes.len(), n.adjacency.len());
 }
 
 #[test]

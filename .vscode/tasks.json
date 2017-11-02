@@ -30,8 +30,8 @@
             "command": "cargo",
             "args": [
                 "test",
-                "--" //,
-                // "--nocapture"
+                "--",
+                "--nocapture"
             ],
             "group": "build",
             "problemMatcher": "$rustc"
