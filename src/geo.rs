@@ -444,36 +444,30 @@ impl Net {
             let num_neighbors = neighbor_coords.len(); // May be 5 or 6
             let center_node = self.nodes.get(center_coord).unwrap();
 
+            let mut midpoints: Vec<Vector3<f32>> = Vec::new();
+
             for face_i in 0..num_neighbors {
                 let right_coord = neighbor_coords[face_i];
                 let right_node = self.nodes.get(&right_coord).unwrap();
-                let right_midpoint = center_node.position + (right_node.position - center_node.position) / 2.;
 
                 let left_coord = neighbor_coords[(face_i + 1) % num_neighbors];
                 let left_node = self.nodes.get(&left_coord).unwrap();
-                let left_midpoint = center_node.position + (left_node.position - center_node.position) / 2.;
 
-                /*
-                println!(
-                    "Face {}: (Center = {:?} --> Right = {:?} & Left = {:?})\n\tcenter {:?}\n\tright {:?}\n\tleft {:?}\n\tnorm cr {}\n\tnorm rl {}\n\tnorm lc {}",
-                    face_i, center_coord, right_coord, left_coord,
-                    center_node.position,
-                    right_midpoint,
-                    left_midpoint,
-                    nalgebra::norm(&(center_node.position - right_midpoint)),
-                    nalgebra::norm(&(right_midpoint - left_midpoint)),
-                    nalgebra::norm(&(left_midpoint - center_node.position)),
-                );
-                */
+                let midpoint = (center_node.position + right_node.position + left_node.position) / 3.;
+
+                midpoints.push(midpoint);
+            }
+
+            for dual_face_i in 0..num_neighbors {
+                let right_midpoint = midpoints.as_slice()[dual_face_i];
+                let left_midpoint = midpoints.as_slice()[(dual_face_i + 1) % num_neighbors];
                 
-                let foo = nalgebra::norm(&center_node.position);
-
                 faces.push([
                     center_node.position,
-                    right_midpoint,
-                    left_midpoint,
+                    right_midpoint.normalize(),
+                    left_midpoint.normalize(),
                 ])
-            }    
+            }
         }
 
         faces
