@@ -361,15 +361,15 @@ impl Net {
 
             let up_coordinate = vec2_add(root_coordinate, vec2_scale(up_offset, factor));
             let up_node = nodes.get(&up_coordinate).unwrap();
-            let up_displacement = up_node.position - root_position;
+            let up_displacement = (up_node.position - root_position) / (factor as f32);
 
             let parallel_coordinate = vec2_add(root_coordinate, vec2_scale(parallel_offset, factor));
             let parallel_node = nodes.get(&parallel_coordinate).unwrap();
-            let parallel_displacement = parallel_node.position - root_position;
+            let parallel_displacement = (parallel_node.position - root_position)  / (factor as f32);
             
             let right_coordinate = vec2_add(root_coordinate, vec2_scale(right_offset, factor));
             let right_node = nodes.get(&right_coordinate).unwrap();
-            let right_displacement = right_node.position - root_position;
+            let right_displacement = (right_node.position - root_position)  / (factor as f32);
 
             // Up Edge
             for i in 1..factor {
