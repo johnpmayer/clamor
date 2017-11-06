@@ -55,16 +55,16 @@ fn main() {
 
     // let world = Net::build();
     let world = Net::build_subdivided(2);
+    // let world = Net::build_subdivided(5);
 
     for (ref coord, ref node) in world.nodes.iter() {
         println!("{:?}, {:?}", coord, node.position.data);
     }
 
-    let mut faces = world.faces();
-    // faces.truncate(5);
-
+    let faces = world.faces();
+    
     for ref face in faces.iter() {
-        println!("{:?}", face);
+        // println!("{:?}", face);
     }
 
     // panic!("?");

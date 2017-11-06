@@ -2,6 +2,7 @@
 //in vec2 v_TexCoord;
 out vec4 o_Color;
 //uniform sampler2D t_color;
+in vec4 v_pos_copy;
 in float v_color_copy;
 
 /*
@@ -22,5 +23,6 @@ void main() {
     // get angle from x & y, convert to hue
     // convert ((z + 1) / 2) to saturation and value
     
-    o_Color = vec4(v_color_copy,v_color_copy,v_color_copy,1.0);
+    // o_Color = vec4(v_color_copy,v_color_copy,v_color_copy,1.0);
+    o_Color = v_pos_copy * v_color_copy;
 }

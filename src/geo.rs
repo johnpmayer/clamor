@@ -15,12 +15,42 @@ use vecmath::{vec2_add, vec2_scale};
 
 type NetCoordinate = [i32; 2];
 
+/*
+
+Primary Icosahedron Net
+
+5   .               o = o = o
+                    | / | / I
+4   .           o = * - * - o
+                | / | / I
+3   .       o = * - * - o
+            | / | / I
+2   .   o = * - * - o
+        | / | / I
+1   x = * - * - o
+    | / | / I
+0   * - * - x   .   .   .   .
+
+    0   1   2   3   4   5   6
+*/
+
+#[derive(Clone, Debug)]
+pub enum NodeType {
+    NorthPole,
+    ArcticEdge,
+    Internal,
+    TropicalEdge,
+    AntarcticEdge,
+    SouthPole,
+}
+
 // TODO make a "dump" debug function rather than making these types/fields public
 #[derive(Clone, Debug)]
 pub struct NetNode {
     coordinates: Vec<NetCoordinate>,
     pub position: Vector3<f32>,
     is_primary: bool,
+    node_type: NodeType,
 }
 
 #[derive(Clone, Debug)]
@@ -50,7 +80,8 @@ impl Net {
             let north_pole_node = Rc::new(NetNode { 
                 coordinates: north_pole_net_coordinates.clone(),
                 position: north_pole_position,
-                is_primary: true
+                is_primary: true,
+                node_type: NodeType::NorthPole,
             });
             for coord in north_pole_net_coordinates {
                 nodes.insert(coord, north_pole_node.clone());
@@ -67,7 +98,8 @@ impl Net {
             let south_pole_node = Rc::new(NetNode { 
                 coordinates: south_pole_net_coordinates.clone(), 
                 position: south_pole_position,
-                is_primary: true
+                is_primary: true,
+                node_type: NodeType::SouthPole,
             });
             for coord in south_pole_net_coordinates {
                 nodes.insert(coord, south_pole_node.clone());
@@ -90,7 +122,8 @@ impl Net {
             let arctic_circle_node = Rc::new(NetNode {
                 coordinates: arctic_circle_coordinates.clone(),
                 position: arctic_circle_position,
-                is_primary: true
+                is_primary: true,
+                node_type: if i == 0 { NodeType::TropicalEdge } else { NodeType::Internal},
             });
             for coord in arctic_circle_coordinates {
                 
@@ -114,7 +147,8 @@ impl Net {
             let antarctic_circle_node = Rc::new(NetNode {
                 coordinates: antarctic_circle_coordinates.clone(),
                 position: antarctic_circle_position,
-                is_primary: true
+                is_primary: true,
+                node_type: if i == 0 { NodeType::TropicalEdge } else { NodeType::Internal},
             });
             for coord in antarctic_circle_coordinates {
                 
@@ -144,7 +178,7 @@ impl Net {
 
             let neighbors = Net::canonical_neighbors(&nodes, node_coordinate).unwrap();
 
-            // println!("{:?}, {:?}", node_coordinate, neighbors);
+            println!("{:?} ({:?}), {:?}", node_coordinate, node.node_type, neighbors);
 
             assert!(
                 if node.is_primary { neighbors.len() == 5 } else { neighbors.len() == 6 }
@@ -168,28 +202,108 @@ impl Net {
         let mut neighbors = HashSet::new();
         let mut counter_clockwise_neighbors = Vec::new();
 
-        let offsets: [NetCoordinate; 6] = [
-            [1,0],
-            [1,1],
-            [0,1],
-            [-1,0],
-            [-1,-1],
-            [0,-1],
-        ];
-
         let node: &Rc<NetNode> = nodes.get(coordinate).ok_or(NetError::InvalidCoordinate)?;
 
-        for &offset in offsets.iter() {
-            for &node_coordinate in node.coordinates.iter() {
+        let mut test_coordinates = Vec::new();
 
-                let test_coordinate = vec2_add(node_coordinate, offset);
-                if node.coordinates.iter().find(|c| **c == test_coordinate) ==  None {
-                    for neighbor_node in nodes.get(&test_coordinate) {
-                        // Only insert the canonical coordinate
-                        let canonical_neighbor_coordinate = neighbor_node.coordinates[0];
-                        if neighbors.insert(canonical_neighbor_coordinate) {
-                           counter_clockwise_neighbors.push(canonical_neighbor_coordinate)
-                        }
+        match node.node_type {
+            NodeType::NorthPole => {
+                for &node_coordinate in node.coordinates.iter() {
+                    let offset = [0, -1];
+                    let test_coordinate = vec2_add(node_coordinate, offset);
+                    test_coordinates.push(test_coordinate);
+                }
+            },
+            NodeType::ArcticEdge => {
+                let canonical_offsets: [NetCoordinate; 4] = [
+                    [0,-1],
+                    [1,0],
+                    [1,1],
+                    [0,1],
+                ];
+                for canonical_offset in canonical_offsets.iter() {
+                    let test_coordinate = vec2_add(node.coordinates[0], *canonical_offset);
+                    test_coordinates.push(test_coordinate);
+                }
+                let noncanonical_offsets: [NetCoordinate; 2] = [
+                    [-1, -1],
+                    [0, -1],
+                ];
+                for noncanonical_offset in noncanonical_offsets.iter() {
+                    let test_coordinate = vec2_add(node.coordinates[1], *noncanonical_offset);
+                    test_coordinates.push(test_coordinate);
+                }
+            },
+            NodeType::Internal => {
+                let internal_offsets: [NetCoordinate; 6] = [
+                    [1,0],
+                    [1,1],
+                    [0,1],
+                    [-1,0],
+                    [-1,-1],
+                    [0,-1],
+                ];
+                for offset in internal_offsets.iter() {
+                    let test_coordinate = vec2_add(*coordinate, *offset);
+                    test_coordinates.push(test_coordinate);
+                }
+            },
+            NodeType::TropicalEdge => {
+                let canonical_offsets: [NetCoordinate; 3] = [
+                    [1,0],
+                    [1,1],
+                    [0,1],
+                ];
+                for canonical_offset in canonical_offsets.iter() {
+                    let test_coordinate = vec2_add(node.coordinates[0], *canonical_offset);
+                    test_coordinates.push(test_coordinate);
+                }
+                let noncanonical_offsets: [NetCoordinate; 3] = [
+                    [-1, 0],
+                    [-1, -1],
+                    [0, -1],
+                ];
+                for noncanonical_offset in noncanonical_offsets.iter() {
+                    let test_coordinate = vec2_add(node.coordinates[1], *noncanonical_offset);
+                    test_coordinates.push(test_coordinate);
+                }
+            },
+            NodeType::AntarcticEdge => {
+                let canonical_offsets: [NetCoordinate; 4] = [
+                    [1,0],
+                    [1,1],
+                    [0,1],
+                    [-1, 0],
+                ];
+                for canonical_offset in canonical_offsets.iter() {
+                    let test_coordinate = vec2_add(node.coordinates[0], *canonical_offset);
+                    test_coordinates.push(test_coordinate);
+                }
+                let noncanonical_offsets: [NetCoordinate; 2] = [
+                    [-1, 0],
+                    [-1, -1],
+                ];
+                for noncanonical_offset in noncanonical_offsets.iter() {
+                    let test_coordinate = vec2_add(node.coordinates[1], *noncanonical_offset);
+                    test_coordinates.push(test_coordinate);
+                }
+            },
+            NodeType::SouthPole => {
+                for &node_coordinate in node.coordinates.iter() {
+                    let offset = [-1, 0];
+                    let test_coordinate = vec2_add(node_coordinate, offset);
+                    test_coordinates.push(test_coordinate);
+                }
+            },
+        }
+
+        for test_coordinate in test_coordinates {
+            if node.coordinates.iter().find(|c| **c == test_coordinate) ==  None {
+                for neighbor_node in nodes.get(&test_coordinate) {
+                    // Only insert the canonical coordinate
+                    let canonical_neighbor_coordinate = neighbor_node.coordinates[0];
+                    if neighbors.insert(canonical_neighbor_coordinate) {
+                        counter_clockwise_neighbors.push(canonical_neighbor_coordinate)
                     }
                 }
             }
@@ -266,7 +380,8 @@ impl Net {
                 let edge_node = Rc::new(NetNode {
                     coordinates: vec!(edge_node_coord),
                     position: edge_node_position.normalize(),
-                    is_primary: false
+                    is_primary: false,
+                    node_type: NodeType::Internal,
                 });
                 nodes_to_insert.push((edge_node_coord, edge_node));
             }
@@ -280,7 +395,8 @@ impl Net {
                 let edge_node = Rc::new(NetNode {
                     coordinates: vec!(edge_node_coord),
                     position: edge_node_position.normalize(),
-                    is_primary: false
+                    is_primary: false,
+                    node_type: NodeType::Internal,
                 });
                 nodes_to_insert.push((edge_node_coord, edge_node));
             }
@@ -294,7 +410,8 @@ impl Net {
                 let edge_node = Rc::new(NetNode {
                     coordinates: vec!(edge_node_coord),
                     position: edge_node_position.normalize(),
-                    is_primary: false
+                    is_primary: false,
+                    node_type: NodeType::Internal,
                 });
                 nodes_to_insert.push((edge_node_coord, edge_node));
             }
@@ -309,7 +426,8 @@ impl Net {
                     let internal_node = Rc::new(NetNode {
                         coordinates: vec!(internal_node_coord),
                         position: internal_node_position.normalize(),
-                        is_primary: false
+                        is_primary: false,
+                        node_type: NodeType::Internal,
                     });
                     nodes_to_insert.push((internal_node_coord, internal_node));
                 }
@@ -325,7 +443,8 @@ impl Net {
                     let internal_node = Rc::new(NetNode {
                         coordinates: vec!(internal_node_coord),
                         position: internal_node_position.normalize(),
-                        is_primary: false
+                        is_primary: false,
+                        node_type: NodeType::Internal,
                     });
                     nodes_to_insert.push((internal_node_coord, internal_node));
                 }
@@ -365,11 +484,16 @@ impl Net {
                 let canonical_edge_coordinate = vec2_add(canonical_edge_root_coordinate, vec2_scale(canonical_edge_offset, offset_index));
                 let noncanonical_edge_coordinate = vec2_add(noncanonical_edge_root_coordinate, vec2_scale(noncanonical_edge_offset, offset_index));
 
-                let mut canonical_node: &mut Rc<NetNode> = nodes.get_mut(&canonical_edge_coordinate).unwrap();
-                // Safe to unwrap, this is an edge node created above and there should only be one active reference
-                Rc::get_mut(canonical_node).unwrap().coordinates.push(noncanonical_edge_coordinate);
+                let mut canonical_node_rc: &mut Rc<NetNode> = nodes.get_mut(&canonical_edge_coordinate).unwrap();
+                
+                {
+                    // Safe to unwrap, this is an edge node created above and there should only be one active reference
+                    let ref mut canonical_node = Rc::get_mut(canonical_node_rc).unwrap();
+                    canonical_node.node_type = NodeType::ArcticEdge;
+                    canonical_node.coordinates.push(noncanonical_edge_coordinate);
+                }
 
-                noncanonical_nodes_to_insert.push((noncanonical_edge_coordinate, canonical_node.clone()));
+                noncanonical_nodes_to_insert.push((noncanonical_edge_coordinate, canonical_node_rc.clone()));
             }
         }
 
@@ -387,11 +511,16 @@ impl Net {
                 let canonical_edge_coordinate = vec2_add(canonical_edge_root_coordinate, vec2_scale(canonical_edge_offset, offset_index));
                 let noncanonical_edge_coordinate = vec2_add(noncanonical_edge_root_coordinate, vec2_scale(noncanonical_edge_offset, offset_index));
 
-                let mut canonical_node: &mut Rc<NetNode> = nodes.get_mut(&canonical_edge_coordinate).unwrap();
-                // Safe to unwrap, this is an edge node created above and there should only be one active reference
-                Rc::get_mut(canonical_node).unwrap().coordinates.push(noncanonical_edge_coordinate);
+                let mut canonical_node_rc: &mut Rc<NetNode> = nodes.get_mut(&canonical_edge_coordinate).unwrap();
+                
+                {
+                    // Safe to unwrap, this is an edge node created above and there should only be one active reference
+                    let ref mut canonical_node = Rc::get_mut(canonical_node_rc).unwrap();
+                    canonical_node.node_type = NodeType::AntarcticEdge;
+                    canonical_node.coordinates.push(noncanonical_edge_coordinate);
+                }
 
-                noncanonical_nodes_to_insert.push((noncanonical_edge_coordinate, canonical_node.clone()));
+                noncanonical_nodes_to_insert.push((noncanonical_edge_coordinate, canonical_node_rc.clone()));
             }
         }
 
@@ -406,11 +535,16 @@ impl Net {
                 let canonical_edge_coordinate = vec2_add(canonical_tropics_root, vec2_scale(tropics_offset, offset_index));
                 let noncanonical_edge_coordinate = vec2_add(noncanonical_tropics_root, vec2_scale(tropics_offset, offset_index));
 
-                let mut canonical_node: &mut Rc<NetNode> = nodes.get_mut(&canonical_edge_coordinate).unwrap();
-                // Safe to unwrap, this is an edge node created above and there should only be one active reference
-                Rc::get_mut(canonical_node).unwrap().coordinates.push(noncanonical_edge_coordinate);
+                let mut canonical_node_rc: &mut Rc<NetNode> = nodes.get_mut(&canonical_edge_coordinate).unwrap();
+                
+                {
+                    // Safe to unwrap, this is an edge node created above and there should only be one active reference
+                    let ref mut canonical_node = Rc::get_mut(canonical_node_rc).unwrap();
+                    canonical_node.node_type = NodeType::TropicalEdge;
+                    canonical_node.coordinates.push(noncanonical_edge_coordinate);
+                }
 
-                noncanonical_nodes_to_insert.push((noncanonical_edge_coordinate, canonical_node.clone()));
+                noncanonical_nodes_to_insert.push((noncanonical_edge_coordinate, canonical_node_rc.clone()));
             }
         }
 
@@ -462,6 +596,20 @@ impl Net {
                 let right_midpoint = midpoints.as_slice()[dual_face_i];
                 let left_midpoint = midpoints.as_slice()[(dual_face_i + 1) % num_neighbors];
                 
+
+                println!(
+                    "Face {}: (Center = {:?} --> )\n\tcenter {:?}\n\tright {:?}\n\tleft {:?}\n\tnorm cr {}\n\tnorm rl {}\n\tnorm lc {}",
+                    dual_face_i, center_coord, //right_coord, left_coord,
+                    center_node.position,
+                    right_midpoint,
+                    left_midpoint,
+                    nalgebra::norm(&(center_node.position - right_midpoint)),
+                    nalgebra::norm(&(right_midpoint - left_midpoint)),
+                    nalgebra::norm(&(left_midpoint - center_node.position)),
+                );
+
+
+
                 faces.push([
                     center_node.position,
                     right_midpoint.normalize(),
