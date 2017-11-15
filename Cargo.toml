@@ -23,6 +23,7 @@ gfx = "0.16.0"
 shader_version = "0.3.0"
 camera_controllers = "0.23.0"
 pistoncore-sdl2_window = "0.46.0"
+rand = "0.3.17"
 
 [build-dependencies]
 kay_codegen = { git = "https://github.com/citybound/citybound" }

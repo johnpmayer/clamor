@@ -1,7 +1,9 @@
 
 // extern crate alga;
 extern crate nalgebra;
-extern crate vecmath;
 extern crate num;
+extern crate rand;
+extern crate vecmath;
 
-pub mod geo;
+pub mod geodesic;
+pub mod tectonic;

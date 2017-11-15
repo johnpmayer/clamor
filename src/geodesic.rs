@@ -1,19 +1,13 @@
 
-
-use std::rc::Rc;
+use nalgebra::core::{Vector3};
+use nalgebra::geometry::Rotation3;
+use num::Integer;
 use std::collections::{HashSet, HashMap};
 use std::f32::{self, consts};
+use std::rc::Rc;
+use vecmath::{Vector2, vec2_add, vec2_scale};
 
-use num::Integer;
-
-use nalgebra::geometry::Rotation3;
-use nalgebra::core::{Vector3};
-use nalgebra;
-
-// use vecmath::Vector2;
-use vecmath::{vec2_add, vec2_scale};
-
-type NetCoordinate = [i32; 2];
+pub type NetCoordinate = Vector2<i32>;
 
 /*
 
@@ -44,7 +38,6 @@ pub enum NodeType {
     SouthPole,
 }
 
-// TODO make a "dump" debug function rather than making these types/fields public
 #[derive(Clone, Debug)]
 pub struct NetNode {
     coordinates: Vec<NetCoordinate>,
@@ -57,11 +50,11 @@ pub struct NetNode {
 pub struct Net {
     factor: i32,
     pub nodes: HashMap<NetCoordinate, Rc<NetNode>>,
-    adjacency: HashMap<NetCoordinate, Vec<NetCoordinate>>, // Counter-clockwise w.r.t. the Net
+    pub adjacency: HashMap<NetCoordinate, Vec<NetCoordinate>>, // Counter-clockwise w.r.t. the Net
 }
 
 #[derive(Debug)]
-enum NetError{ InvalidCoordinate }
+enum NetError { InvalidCoordinate }
 
 impl Net {
     pub fn build() -> Net {
@@ -178,7 +171,7 @@ impl Net {
 
             let neighbors = Net::canonical_neighbors(&nodes, node_coordinate).unwrap();
 
-            println!("{:?} ({:?}), {:?}", node_coordinate, node.node_type, neighbors);
+            //println!("{:?} ({:?}), {:?}", node_coordinate, node.node_type, neighbors);
 
             assert!(
                 if node.is_primary { neighbors.len() == 5 } else { neighbors.len() == 6 }
@@ -323,7 +316,6 @@ impl Net {
         for (_, primary_node) in primary_net.nodes.iter().filter(|&(coord, ref node)| {
             node.coordinates[0] == *coord
         }) {
-            // println!("Primary node: {:?}", primary_node);
             let mut new_primary_node: NetNode = primary_node.as_ref().clone();
 
             for ref mut coordinate in &mut new_primary_node.coordinates {
@@ -334,7 +326,6 @@ impl Net {
 
             for new_coordinate in rc_new_primary_node.clone().coordinates.iter() {
                 nodes.insert(*new_coordinate, rc_new_primary_node.clone());
-                // println!("New primary node: {:?} -> {:?}", new_coordinate, rc_new_primary_node);
             }
             
         }
@@ -352,8 +343,6 @@ impl Net {
             let root_coordinate = vec2_scale(primary_non_polar_coordinate, factor);
             let root_node = nodes.get(&root_coordinate).unwrap();
             let root_position = root_node.position;
-
-            // println!("Primary non_polar node: {:?}", root_coordinate);
 
             let up_offset = [0, 1];
             let parallel_offset = [1, 1];
@@ -374,7 +363,6 @@ impl Net {
             // Up Edge
             for i in 1..factor {
                 let edge_node_coord = vec2_add(root_coordinate, vec2_scale(up_offset, i));
-                // println!("Up Edge {} -> {:?}", i, edge_node_coord);
                 let edge_node_displacement = up_displacement * (i as f32);
                 let edge_node_position = root_position + edge_node_displacement;
                 let edge_node = Rc::new(NetNode {
@@ -389,7 +377,6 @@ impl Net {
             // Parallel Edge
             for i in 1..factor {
                 let edge_node_coord = vec2_add(root_coordinate, vec2_scale(parallel_offset, i));
-                // println!("Parallel Edge {} -> {:?}", i, edge_node_coord);
                 let edge_node_displacement = parallel_displacement * (i as f32);
                 let edge_node_position = root_position + edge_node_displacement;
                 let edge_node = Rc::new(NetNode {
@@ -404,7 +391,6 @@ impl Net {
             // Right Edge
             for i in 1..factor {
                 let edge_node_coord = vec2_add(root_coordinate, vec2_scale(right_offset, i));
-                // println!("Right Edge {} -> {:?}", i, edge_node_coord);
                 let edge_node_displacement = right_displacement * (i as f32);
                 let edge_node_position = root_position + edge_node_displacement;
                 let edge_node = Rc::new(NetNode {
@@ -420,7 +406,6 @@ impl Net {
             for i in 1..factor {
                 for j in 1..(factor - i) {
                     let internal_node_coord = vec2_add(vec2_add(root_coordinate, vec2_scale(up_offset, i)), vec2_scale(parallel_offset, j));
-                    // println!("Upper Triangle {},{} -> {:?}", i, j, internal_node_coord);
                     let internal_node_displacement = up_displacement * (i as f32) + parallel_displacement * (j as f32);
                     let internal_node_position = root_position + internal_node_displacement;
                     let internal_node = Rc::new(NetNode {
@@ -437,7 +422,6 @@ impl Net {
             for i in 1..factor {
                 for j in 1..(factor - i) {
                     let internal_node_coord = vec2_add(vec2_add(root_coordinate, vec2_scale(right_offset, i)), vec2_scale(parallel_offset, j));
-                    // println!("Lower Triangle {},{} -> {:?}", i, j, internal_node_coord);
                     let internal_node_displacement = right_displacement * (i as f32) + parallel_displacement * (j as f32);
                     let internal_node_position = root_position + internal_node_displacement;
                     let internal_node = Rc::new(NetNode {
@@ -457,7 +441,6 @@ impl Net {
             nodes.insert(new_coord, new_node);
         }
 
-        // println!("Including canonical edges and iterior nodes: {}", nodes.len());
         assert!(nodes.len() as i32 == 
             22 + // Primary nodes, canonical & non-canonical
             (10 * (factor - 1) * (factor + 1)) // Canonical edge nodes and all internal nodes
@@ -595,20 +578,6 @@ impl Net {
             for dual_face_i in 0..num_neighbors {
                 let right_midpoint = midpoints.as_slice()[dual_face_i];
                 let left_midpoint = midpoints.as_slice()[(dual_face_i + 1) % num_neighbors];
-                
-
-                println!(
-                    "Face {}: (Center = {:?} --> )\n\tcenter {:?}\n\tright {:?}\n\tleft {:?}\n\tnorm cr {}\n\tnorm rl {}\n\tnorm lc {}",
-                    dual_face_i, center_coord, //right_coord, left_coord,
-                    center_node.position,
-                    right_midpoint,
-                    left_midpoint,
-                    nalgebra::norm(&(center_node.position - right_midpoint)),
-                    nalgebra::norm(&(right_midpoint - left_midpoint)),
-                    nalgebra::norm(&(left_midpoint - center_node.position)),
-                );
-
-
 
                 faces.push([
                     center_node.position,
@@ -632,13 +601,13 @@ fn modulo_behavior() {
 #[test]
 fn run_icosahedron() {
     let n = Net::build();
-    println!("build - {} {}", n.nodes.len(), n.adjacency.len());
+    // println!("build - {} {}", n.nodes.len(), n.adjacency.len());
 }
 
 #[test]
 fn run_icosahedron_2() {
     let n = Net::build_subdivided(2);
-    println!("build_subdivided 2 - {} {}", n.nodes.len(), n.adjacency.len());
+    // println!("build_subdivided 2 - {} {}", n.nodes.len(), n.adjacency.len());
 }
 
 #[test]

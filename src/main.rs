@@ -11,7 +11,7 @@ extern crate vecmath;
 extern crate gfx;
 
 use piston_window::*;
-use clamor::geo::Net;
+use clamor::geodesic::Net;
 use gfx::traits::*;
 use shader_version::Shaders;
 use shader_version::glsl::GLSL;
@@ -27,7 +27,6 @@ use nalgebra::core::{Vector3};
 gfx_vertex_struct!( Vertex {
     a_pos: [f32; 4] = "a_pos",
     a_color: f32 = "a_color",
-    //a_tex_coord: [i8; 2] = "a_tex_coord",
 });
 
 impl Vertex {
@@ -36,7 +35,6 @@ impl Vertex {
         Vertex {
             a_pos: [pos[0], pos[1], pos[2], 1.],
             a_color: light_level
-            //a_tex_coord: [0, 0],
         }
     }
 }
@@ -53,22 +51,9 @@ gfx_pipeline!( pipe {
 fn main() {
     println!("Start!");
 
-    // let world = Net::build();
-    let world = Net::build_subdivided(2);
-    // let world = Net::build_subdivided(5);
-
-    for (ref coord, ref node) in world.nodes.iter() {
-        println!("{:?}, {:?}", coord, node.position.data);
-    }
-
+    let world = Net::build_subdivided(4);
     let faces = world.faces();
     
-    for ref face in faces.iter() {
-        // println!("{:?}", face);
-    }
-
-    // panic!("?");
-
     println!("Num of faces: {}", faces.len());
 
     let mut vertex_data: Vec<Vertex> = Vec::new();
